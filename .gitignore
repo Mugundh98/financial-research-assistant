@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+
+# Secrets / local config
+.env
+.streamlit/secrets.toml
+
+# Cached SEC data (re-fetched on first run) and generated artifacts
+data/cache/
+audit_logs/
+*.log
+*.sqlite
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

@@ -1,0 +1,26 @@
+[
+  {
+    "cik": "0000320193",
+    "ticker": "AAPL",
+    "name": "Apple Inc.",
+    "sic": "3571",
+    "sic_description": "Electronic Computers",
+    "fiscal_year_end": "0926"
+  },
+  {
+    "cik": "0000789019",
+    "ticker": "MSFT",
+    "name": "MICROSOFT CORP",
+    "sic": "7372",
+    "sic_description": "Services-Prepackaged Software",
+    "fiscal_year_end": "0630"
+  },
+  {
+    "cik": "0001045810",
+    "ticker": "NVDA",
+    "name": "NVIDIA CORP",
+    "sic": "3674",
+    "sic_description": "Semiconductors & Related Devices",
+    "fiscal_year_end": "0131"
+  }
+]
