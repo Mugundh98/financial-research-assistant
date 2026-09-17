@@ -72,7 +72,7 @@ pytest -q                                           # tests + evals
 
 - [x] **P0** Scaffold, config, data contracts, README
 - [x] **P1** Real SEC ingestion — client + cache + normalization + filing-section extraction + `scripts.ingest` CLI
-- [ ] **P2** Retrieval (vector + BM25 + hybrid + graph)
+- [x] **P2** Retrieval — chunking, LSA vector + BM25 keyword + hybrid (RRF), structured `FactStore` (duration-based fiscal-year derivation), networkx knowledge graph
 - [ ] **P3** Deterministic tools + structured outputs
 - [ ] **P4** Agent orchestration + router + guardrails + human approval
 - [ ] **P5** Provenance, freshness, security, audit, token/latency

@@ -84,8 +84,9 @@ class FinancialFact(BaseModel):
     label: Optional[str] = None
     value: float
     unit: str = "USD"
-    fiscal_year: Optional[int] = None
-    fiscal_period: Optional[str] = None   # "FY", "Q1".."Q4"
+    fiscal_year: Optional[int] = None     # derived from period_end (not SEC's filing `fy`)
+    fiscal_period: Optional[str] = None   # "FY", "Q1".."Q4" as reported
+    period_type: Optional[str] = None     # annual | quarter | half | ytd9 | instant | other
     period_start: Optional[date] = None
     period_end: Optional[date] = None
     filed: Optional[date] = None

@@ -40,6 +40,24 @@ def _parse_date(value: Any) -> Optional[date]:
         return None
 
 
+def _classify_period(start: Optional[date], end: Optional[date]) -> str:
+    """Classify a fact's period by duration (robust to SEC's `fp`/`fy` quirks)."""
+    if end and not start:
+        return "instant"          # balance-sheet point-in-time
+    if start and end:
+        days = (end - start).days
+        if 330 <= days <= 400:
+            return "annual"
+        if 80 <= days <= 100:
+            return "quarter"
+        if 150 <= days <= 200:
+            return "half"
+        if 250 <= days <= 290:
+            return "ytd9"
+        return "other"
+    return "unknown"
+
+
 def company_from_submissions(sub: dict) -> Company:
     tickers = sub.get("tickers") or []
     return Company(
@@ -70,8 +88,13 @@ def facts_from_company_concept(
                 value = float(e["val"])
             except (KeyError, TypeError, ValueError):
                 continue
+            start = _parse_date(e.get("start"))
             end = _parse_date(e.get("end"))
             filed = _parse_date(e.get("filed"))
+            period_type = _classify_period(start, end)
+            # Derive the fiscal-year label from the period end, NOT SEC's filing
+            # `fy` (which tags prior-year comparatives with the filing's year).
+            fiscal_year = end.year if end else e.get("fy")
             fact_id = (
                 f"{cik10}:{tag}:{e.get('fy')}:{e.get('fp')}:"
                 f"{e.get('start') or ''}:{e.get('end')}:{e.get('accn')}"
@@ -86,9 +109,10 @@ def facts_from_company_concept(
                     label=label,
                     value=value,
                     unit=unit,
-                    fiscal_year=e.get("fy"),
+                    fiscal_year=fiscal_year,
                     fiscal_period=e.get("fp"),
-                    period_start=_parse_date(e.get("start")),
+                    period_type=period_type,
+                    period_start=start,
                     period_end=end,
                     filed=filed,
                     form=e.get("form"),
