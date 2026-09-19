@@ -11,6 +11,9 @@ suite for numeric accuracy, freshness, source provenance, and safe communication
 > back to a deterministic **mock** model when no key is present, so the whole
 > pipeline and all evaluations run with zero secrets.
 
+> **Reviewers:** start with [SUBMISSION.md](SUBMISSION.md) (summary + rubric map)
+> and [docs/DEMO.md](docs/DEMO.md) (end-to-end walkthrough).
+
 ## Rubric coverage
 
 | # | Capability | Where it lives | Depth |
@@ -85,6 +88,8 @@ streamlit run dashboard/app.py                      # dashboard (http://localhos
 
 ## Documentation
 
+- [**Submission note**](SUBMISSION.md) — reviewer summary, 2-minute run, rubric map, eval results.
+- [**Demo walkthrough**](docs/DEMO.md) — narrated transcript + dashboard walkthrough (`python -m scripts.demo`).
 - [**Product discovery**](docs/product_discovery.md) — personas, jobs-to-be-done, use cases, success metrics, scope.
 - [**Model risk & governance**](docs/model_risk.md) — SR 11-7-style risk tiering, failure modes & mitigations, evaluation, oversight.
 - [**Architecture**](docs/architecture.md) — system diagram, query lifecycle, module map, design decisions, latency/cost trade-offs.
