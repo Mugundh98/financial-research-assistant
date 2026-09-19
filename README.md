@@ -63,9 +63,10 @@ Commands land as phases are implemented (see **Build status**):
 
 ```bash
 python -m scripts.ingest --tickers AAPL MSFT NVDA   # fetch + validate real SEC data
-python -m src.api.app                               # FastAPI service
-streamlit run dashboard/app.py                      # dashboard
-pytest -q                                           # tests + evals
+python -m scripts.evaluate                          # evaluation scorecard (30 checks)
+pytest                                              # unit tests (28)
+python -m src.api.app                               # FastAPI service (P7)
+streamlit run dashboard/app.py                      # dashboard (P7)
 ```
 
 ## Build status
@@ -76,7 +77,7 @@ pytest -q                                           # tests + evals
 - [x] **P3** Deterministic tools — cited `ToolCall`s (growth, CAGR, margin, ratio, projection, scenario compare, NPV, IRR) + function-calling registry with JSON schemas
 - [x] **P4** Agent — LLM client (Claude + mock fallback), capability router, deterministic plan→retrieve→compute→compose pipeline, guardrails (citation enforcement, freshness, safe-comms), human-approval gate
 - [x] **P5** Governance — RBAC + approved-only + PII redaction (`security/`), JSONL audit log + token/cost + per-stage latency (`observability/`), provenance reporting (`provenance/`)
-- [ ] **P6** Evaluation (numeric, retrieval, generation, safe-comms)
+- [x] **P6** Evaluation — `eval/` suites (numeric accuracy, retrieval hit@3/MRR, generation faithfulness, safe-comms) + `scripts.evaluate` scorecard (30/30) + `pytest` suite (28 tests)
 - [ ] **P7** FastAPI + Streamlit
 - [ ] **P8** Docs (product discovery, model risk, architecture)
 

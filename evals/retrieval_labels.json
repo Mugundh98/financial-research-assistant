@@ -1,0 +1,9 @@
+[
+  {"query": "What are NVIDIA's risk factors?", "company": "NVIDIA", "section": "Risk Factors"},
+  {"query": "Microsoft business overview and segments", "company": "MICROSOFT", "section": "Business"},
+  {"query": "Apple management discussion of results of operations", "company": "Apple", "section": "MD&A"},
+  {"query": "NVIDIA competition and supply chain risks", "company": "NVIDIA", "section": "Risk Factors"},
+  {"query": "Microsoft risks and uncertainties", "company": "MICROSOFT", "section": "Risk Factors"},
+  {"query": "Apple products and services business description", "company": "Apple", "section": "Business"},
+  {"query": "NVIDIA revenue results and gross margin discussion", "company": "NVIDIA", "section": "MD&A"}
+]

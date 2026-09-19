@@ -194,6 +194,20 @@ class Agent:
         trace.append(f"plan: {plan}")
         sw.lap("plan")
 
+        # Scope guard: only answer about covered companies (never fabricate others).
+        if not plan.tickers:
+            covered = ", ".join(c.ticker for c in self.corpus.companies if c.ticker)
+            self.audit.log("refused_scope", query_id=qid, user_id=access.user_id, role=access.role.value)
+            scoped = AnalysisResult(
+                query_id=qid, query=query, refused=True,
+                refusal_reason="No covered company was identified in the question.",
+                answer=f"I can only answer about covered companies ({covered}); none was identified in your question.",
+                disclaimers=[guardrails.RESEARCH_DISCLAIMER],
+                reasoning_trace=trace + ["scope: no covered company"],
+            )
+            scoped.latency_ms = sw.total()
+            return scoped
+
         # Access control: refuse capabilities the caller's role lacks.
         cap = required_capability(plan.intent)
         if not can(access.role, cap):
@@ -203,6 +217,7 @@ class Agent:
                 query_id=qid, query=query, refused=True,
                 refusal_reason=f"Role '{access.role.value}' is not permitted to run '{plan.intent}' (needs '{cap}').",
                 answer=f"Access denied: this request needs the '{cap}' capability, which the '{access.role.value}' role lacks.",
+                disclaimers=[guardrails.RESEARCH_DISCLAIMER],
                 reasoning_trace=trace + [f"access: denied ({cap})"],
             )
             denied.latency_ms = sw.total()

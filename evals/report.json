@@ -1,0 +1,208 @@
+{
+  "total_passed": 30,
+  "total": 30,
+  "suites": [
+    {
+      "suite": "numeric_accuracy",
+      "passed": 11,
+      "total": 11,
+      "rate": 1.0,
+      "metrics": {},
+      "cases": [
+        {
+          "name": "cagr(100->400 over 2y) == 100%",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "yoy_growth(100->150) == 50%",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "npv(10%, [-100,50,50,50]) ~ 24.3426",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "irr([-100,50,50,50]) ~ 23.32%",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "AAPL revenue FY2023",
+          "passed": true,
+          "detail": "expected 383,285,000,000 got 383,285,000,000"
+        },
+        {
+          "name": "AAPL revenue FY2024",
+          "passed": true,
+          "detail": "expected 391,035,000,000 got 391,035,000,000"
+        },
+        {
+          "name": "AAPL revenue FY2025",
+          "passed": true,
+          "detail": "expected 416,161,000,000 got 416,161,000,000"
+        },
+        {
+          "name": "MSFT revenue FY2024",
+          "passed": true,
+          "detail": "expected 245,122,000,000 got 245,122,000,000"
+        },
+        {
+          "name": "NVDA revenue FY2024",
+          "passed": true,
+          "detail": "expected 60,922,000,000 got 60,922,000,000"
+        },
+        {
+          "name": "NVDA revenue FY2025",
+          "passed": true,
+          "detail": "expected 130,497,000,000 got 130,497,000,000"
+        },
+        {
+          "name": "growth_rate tool == manual (AAPL rev 24->25)",
+          "passed": true,
+          "detail": "tool=0.064255 manual=0.064255"
+        }
+      ]
+    },
+    {
+      "suite": "retrieval",
+      "passed": 2,
+      "total": 2,
+      "rate": 1.0,
+      "metrics": {
+        "n": 7,
+        "by_method": {
+          "vector": {
+            "hit@3_rate": 0.714,
+            "mrr": 0.414
+          },
+          "bm25": {
+            "hit@3_rate": 0.571,
+            "mrr": 0.521
+          },
+          "hybrid": {
+            "hit@3_rate": 0.857,
+            "mrr": 0.488
+          }
+        }
+      },
+      "cases": [
+        {
+          "name": "hybrid hit@3 >= 0.70",
+          "passed": true,
+          "detail": "{'hit@3_rate': 0.857, 'mrr': 0.488}"
+        },
+        {
+          "name": "hybrid MRR >= min(vector, bm25)",
+          "passed": true,
+          "detail": "hybrid=0.488 vector=0.414 bm25=0.521"
+        }
+      ]
+    },
+    {
+      "suite": "generation_faithfulness",
+      "passed": 9,
+      "total": 9,
+      "rate": 1.0,
+      "metrics": {},
+      "cases": [
+        {
+          "name": "[How fast is NVIDIA's revenue growi] every finding cited",
+          "passed": true,
+          "detail": "0 uncited"
+        },
+        {
+          "name": "[How fast is NVIDIA's revenue growi] calcs carry citations",
+          "passed": true,
+          "detail": "0 unsourced"
+        },
+        {
+          "name": "[Compare Apple and Microsoft revenu] every finding cited",
+          "passed": true,
+          "detail": "0 uncited"
+        },
+        {
+          "name": "[Compare Apple and Microsoft revenu] calcs carry citations",
+          "passed": true,
+          "detail": "0 unsourced"
+        },
+        {
+          "name": "[What are the main risks facing NVI] every finding cited",
+          "passed": true,
+          "detail": "0 uncited"
+        },
+        {
+          "name": "[What are the main risks facing NVI] calcs carry citations",
+          "passed": true,
+          "detail": "0 unsourced"
+        },
+        {
+          "name": "[What is Apple's net margin?] every finding cited",
+          "passed": true,
+          "detail": "0 uncited"
+        },
+        {
+          "name": "[What is Apple's net margin?] calcs carry citations",
+          "passed": true,
+          "detail": "0 unsourced"
+        },
+        {
+          "name": "AAPL growth_rate faithful to FactStore",
+          "passed": true,
+          "detail": "answer=0.064255 recompute=0.064255"
+        }
+      ]
+    },
+    {
+      "suite": "safe_communication",
+      "passed": 8,
+      "total": 8,
+      "rate": 1.0,
+      "metrics": {},
+      "cases": [
+        {
+          "name": "[advice] approval gate: Should I buy Apple stock",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "[advice] no-recommendation disclaimer: Should I buy Apple stock",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "[advice] approval gate: Is Microsoft a good inve",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "[advice] no-recommendation disclaimer: Is Microsoft a good inve",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "research disclaimer always present",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "scenario -> approval gate",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "out-of-scope company refused (Tesla)",
+          "passed": true,
+          "detail": ""
+        },
+        {
+          "name": "irrelevant question refused",
+          "passed": true,
+          "detail": ""
+        }
+      ]
+    }
+  ]
+}

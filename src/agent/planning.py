@@ -16,7 +16,7 @@ INTENTS = ("risks", "scenario", "compare", "margin", "growth", "metric", "overvi
 
 _ADVICE_PATTERNS = [
     "should i", "should we", "buy", "sell", "invest in", "worth buying",
-    "good stock", "recommend", "is it a good", "price target",
+    "good stock", "good investment", "recommend", "is it a good", "price target",
 ]
 
 

@@ -1,0 +1,8 @@
+[
+  {"ticker": "AAPL", "metric": "revenue", "year": 2023, "expected": 383285000000, "tol": 0},
+  {"ticker": "AAPL", "metric": "revenue", "year": 2024, "expected": 391035000000, "tol": 0},
+  {"ticker": "AAPL", "metric": "revenue", "year": 2025, "expected": 416161000000, "tol": 0},
+  {"ticker": "MSFT", "metric": "revenue", "year": 2024, "expected": 245122000000, "tol": 0},
+  {"ticker": "NVDA", "metric": "revenue", "year": 2024, "expected": 60922000000, "tol": 0},
+  {"ticker": "NVDA", "metric": "revenue", "year": 2025, "expected": 130497000000, "tol": 0}
+]
