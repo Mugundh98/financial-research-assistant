@@ -68,25 +68,62 @@ def html_to_text(raw: str) -> str:
     return text.strip()
 
 
+_QUOTE_CHARS = set("\"'‘’“”«»�")
+_XREF_CUES = (
+    "refer to", "conjunction", "see ", "as described", "described in",
+    "pursuant to", "set forth", "discussed in", "included in", "contained in",
+)
+
+
+def _looks_like_cross_reference(text: str, start: int) -> bool:
+    """True if a header match is actually an in-text cross-reference, e.g.
+    `Refer to "Item 1A. Risk Factors"` or `read in conjunction with Item 7`.
+
+    Real section headers are preceded by a page break / running header (incl.
+    "Table of Contents") or a "PART" marker — none of which are quote chars or
+    reference cue phrases. This deliberately does NOT reject on a bare lowercase
+    letter, since running headers legitimately precede real section headers.
+    """
+    j = start - 1
+    while j >= 0 and text[j] in " \t\r\n ":
+        j -= 1
+    if j >= 0 and text[j] in _QUOTE_CHARS:
+        return True
+    preceding = text[max(0, start - 32):start].lower()
+    return any(cue in preceding for cue in _XREF_CUES)
+
+
+def _preceded_like_header(text: str, start: int) -> bool:
+    return not _looks_like_cross_reference(text, start)
+
+
 def _find_section(
     text: str, starts: list[re.Pattern], ends: list[re.Pattern],
     min_len: int = 400, cap: int = 40000,
 ) -> str:
-    # Among all "Item N + title" header matches, take the one that yields the
-    # longest span to the next section header. This reliably skips the short
-    # table-of-contents entries and lands on the real section body.
-    best = ""
+    # Collect "Item N + title" header matches. Prefer matches that are NOT
+    # mid-sentence (real headers), which drops in-text cross-references like
+    # "...in Part I, Item 1A. Risk Factors, our financial statements...". Among
+    # the survivors, take the one with the longest span to the next header
+    # (skips the short table-of-contents entries).
+    candidates: list[tuple[int, bool]] = []
     for sre in starts:
         for m in sre.finditer(text):
-            start = m.end()
-            end = len(text)
-            for ere in ends:
-                em = ere.search(text, start)
-                if em:
-                    end = min(end, em.start())
-            span = text[start:end].strip()
-            if len(span) > len(best):
-                best = span
+            candidates.append((m.end(), _preceded_like_header(text, m.start())))
+    if not candidates:
+        return ""
+    preferred = [end for end, ok in candidates if ok] or [end for end, _ in candidates]
+
+    best = ""
+    for start in preferred:
+        end = len(text)
+        for ere in ends:
+            em = ere.search(text, start)
+            if em:
+                end = min(end, em.start())
+        span = text[start:end].strip()
+        if len(span) > len(best):
+            best = span
     return best[:cap] if len(best) >= min_len else ""
 
 

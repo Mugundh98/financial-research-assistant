@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     default_role: str = "analyst"           # viewer | analyst | admin
 
     # ---- Freshness / guardrails ----
-    staleness_days: int = 200
+    # 400d: current-fiscal-year annual filings stay "fresh"; ~2yr-old data flags.
+    staleness_days: int = 400
     min_citations_for_claim: int = 1
     require_approval_default: bool = False
 

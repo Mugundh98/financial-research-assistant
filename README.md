@@ -74,7 +74,7 @@ pytest -q                                           # tests + evals
 - [x] **P1** Real SEC ingestion — client + cache + normalization + filing-section extraction + `scripts.ingest` CLI
 - [x] **P2** Retrieval — chunking, LSA vector + BM25 keyword + hybrid (RRF), structured `FactStore` (duration-based fiscal-year derivation), networkx knowledge graph
 - [x] **P3** Deterministic tools — cited `ToolCall`s (growth, CAGR, margin, ratio, projection, scenario compare, NPV, IRR) + function-calling registry with JSON schemas
-- [ ] **P4** Agent orchestration + router + guardrails + human approval
+- [x] **P4** Agent — LLM client (Claude + mock fallback), capability router, deterministic plan→retrieve→compute→compose pipeline, guardrails (citation enforcement, freshness, safe-comms), human-approval gate
 - [ ] **P5** Provenance, freshness, security, audit, token/latency
 - [ ] **P6** Evaluation (numeric, retrieval, generation, safe-comms)
 - [ ] **P7** FastAPI + Streamlit

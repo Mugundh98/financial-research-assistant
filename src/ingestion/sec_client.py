@@ -65,7 +65,9 @@ class SECClient:
         self._throttle()
         resp = self._client.get(url)
         resp.raise_for_status()
-        text = resp.text
+        # SEC serves UTF-8; decode explicitly so curly quotes/apostrophes don't
+        # get mangled into replacement characters by charset guessing.
+        text = resp.content.decode("utf-8", errors="replace")
         path.write_text(text, encoding="utf-8")
         return text
 
