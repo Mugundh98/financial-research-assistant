@@ -7,7 +7,6 @@ the result. The single return type is always :class:`AnalysisResult`.
 """
 from __future__ import annotations
 
-import time
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -22,10 +21,13 @@ from ..contracts.models import (
     Assumption,
     Claim,
     RetrievalHit,
+    Role,
     ToolCall,
 )
 from ..ingestion.corpus import Corpus
-from ..retrieval import DocumentRetriever, FactStore, hit_to_citation
+from ..observability import AuditLogger, CostMeter, Stopwatch
+from ..retrieval import DocumentRetriever, FactStore, chunk_corpus, hit_to_citation
+from ..security import can, filter_approved, redact, required_capability
 from ..tools import default_registry
 from . import guardrails, prompts
 from .llm import BaseLLM, get_llm
@@ -44,13 +46,19 @@ def _fmt(value, unit) -> str:
 
 
 class Agent:
-    def __init__(self, corpus: Corpus, cfg: Optional[Settings] = None, llm: Optional[BaseLLM] = None):
+    def __init__(self, corpus: Corpus, cfg: Optional[Settings] = None, llm: Optional[BaseLLM] = None,
+                 audit: Optional[AuditLogger] = None, cost_meter: Optional[CostMeter] = None):
         self.cfg = cfg or default_settings
         self.corpus = corpus
-        self.factstore = FactStore(corpus.facts, corpus.companies)
-        self.retriever = DocumentRetriever.from_corpus(corpus)
+        # Approved-only enforcement: unapproved records never enter the indexes.
+        approved_facts = filter_approved(corpus.facts)
+        approved_docs = filter_approved(corpus.documents)
+        self.factstore = FactStore(approved_facts, corpus.companies)
+        self.retriever = DocumentRetriever().build(chunk_corpus(approved_docs))
         self.registry = default_registry()
         self.llm = llm or get_llm(self.cfg)
+        self.audit = audit if audit is not None else AuditLogger()
+        self.cost = cost_meter if cost_meter is not None else CostMeter()
 
     # ---- pipeline stages -------------------------------------------------- #
     def _gather(self, plan: Plan) -> Evidence:
@@ -176,11 +184,29 @@ class Agent:
 
     # ---- public API ------------------------------------------------------- #
     def answer(self, query: str, access: Optional[AccessContext] = None) -> AnalysisResult:
-        t0 = time.perf_counter()
+        access = access or AccessContext(role=Role(self.cfg.default_role))
+        sw = Stopwatch()
+        qid = uuid.uuid4().hex[:12]
         trace: list[str] = []
+        self.audit.log("query_received", query_id=qid, user_id=access.user_id, role=access.role.value, query=query)
 
         plan = plan_query(query, self.corpus.companies)
         trace.append(f"plan: {plan}")
+        sw.lap("plan")
+
+        # Access control: refuse capabilities the caller's role lacks.
+        cap = required_capability(plan.intent)
+        if not can(access.role, cap):
+            self.audit.log("access_denied", query_id=qid, user_id=access.user_id,
+                           role=access.role.value, capability=cap, intent=plan.intent)
+            denied = AnalysisResult(
+                query_id=qid, query=query, refused=True,
+                refusal_reason=f"Role '{access.role.value}' is not permitted to run '{plan.intent}' (needs '{cap}').",
+                answer=f"Access denied: this request needs the '{cap}' capability, which the '{access.role.value}' role lacks.",
+                reasoning_trace=trace + [f"access: denied ({cap})"],
+            )
+            denied.latency_ms = sw.total()
+            return denied
 
         model, tier = select_model(plan, self.cfg)
         trace.append(f"router: {model} ({tier})")
@@ -188,13 +214,17 @@ class Agent:
         ev = self._gather(plan)
         trace.append(f"evidence: {len(ev.hits)} doc hits, "
                      f"{len([t for t in ev.tool_calls if not t.error])}/{len(ev.tool_calls)} tools ok")
+        self.audit.log("evidence_gathered", query_id=qid, user_id=access.user_id, role=access.role.value,
+                       doc_hits=len(ev.hits), tools=[t.tool for t in ev.tool_calls],
+                       tools_ok=len([t for t in ev.tool_calls if not t.error]))
+        sw.lap("gather")
 
         findings = self._findings(plan, ev)
         assumptions = self._assumptions(plan, ev)
         answer_text = self._template_answer(plan, ev, findings)
 
         result = AnalysisResult(
-            query_id=uuid.uuid4().hex[:12],
+            query_id=qid,
             query=query,
             answer=answer_text,
             findings=findings,
@@ -214,18 +244,51 @@ class Agent:
             if res.text.strip():
                 result.answer = res.text.strip()
             result.usage = res.usage
-            trace.append(f"llm: {res.backend} ({res.usage.input_tokens}->{res.usage.output_tokens} tok)")
+            trace.append(f"llm: {res.backend} ({res.usage.input_tokens}->{res.usage.output_tokens} tok, "
+                         f"${res.usage.cost_usd:.4f})")
         else:
             trace.append("llm: mock (templated answer)")
+        sw.lap("compose")
 
         result = guardrails.verify(result, plan, self.cfg)
+        sw.lap("verify")
+
+        # PII redaction on user-facing text.
+        redactions = 0
+        result.answer, n = redact(result.answer)
+        redactions += n
+        for claim in result.findings:
+            claim.statement, n = redact(claim.statement)
+            redactions += n
+        if redactions:
+            result.caveats.append(f"{redactions} potential PII value(s) were redacted.")
+
+        # Token economics.
+        self.cost.record(result.usage)
+
         result.model_used = model if self.llm.backend == "anthropic" else "mock"
-        result.latency_ms = round((time.perf_counter() - t0) * 1000, 1)
+        result.latency_ms = sw.total()
+        trace.append(f"timing_ms: {sw.stages}")
         result.reasoning_trace = trace
+
+        self.audit.log(
+            "responded", query_id=qid, user_id=access.user_id, role=access.role.value,
+            findings=len(result.findings), confidence=result.confidence,
+            requires_approval=result.requires_human_approval, refused=result.refused,
+            redactions=redactions, latency_ms=result.latency_ms,
+            tokens={"in": result.usage.input_tokens, "out": result.usage.output_tokens},
+            cost_usd=result.usage.cost_usd,
+        )
         return result
 
-    def resolve_approval(self, result: AnalysisResult, decision: str, approver: str, reason: str = "") -> AnalysisResult:
-        """Human-in-the-loop resolution of a pending approval."""
+    def resolve_approval(self, result: AnalysisResult, decision: str, approver: str,
+                         access: Optional[AccessContext] = None, reason: str = "") -> AnalysisResult:
+        """Human-in-the-loop resolution of a pending approval (admin-only)."""
+        if access is not None and not can(access.role, "approve"):
+            self.audit.log("approval_denied", query_id=result.query_id,
+                           user_id=access.user_id, role=access.role.value)
+            result.caveats.append(f"Approval attempt by '{access.role.value}' denied (requires admin).")
+            return result
         status = ApprovalStatus.APPROVED if decision == "approve" else ApprovalStatus.REJECTED
         result.approval = ApprovalDecision(
             status=status, approver=approver, reason=reason or result.approval.reason,
@@ -233,4 +296,8 @@ class Agent:
         )
         if status == ApprovalStatus.REJECTED:
             result.answer = "[Withheld pending human review] " + result.answer
+        self.audit.log("approval_resolved", query_id=result.query_id,
+                       user_id=(access.user_id if access else approver),
+                       role=(access.role.value if access else "admin"),
+                       status=status.value, approver=approver)
         return result

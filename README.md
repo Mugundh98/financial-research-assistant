@@ -75,7 +75,7 @@ pytest -q                                           # tests + evals
 - [x] **P2** Retrieval — chunking, LSA vector + BM25 keyword + hybrid (RRF), structured `FactStore` (duration-based fiscal-year derivation), networkx knowledge graph
 - [x] **P3** Deterministic tools — cited `ToolCall`s (growth, CAGR, margin, ratio, projection, scenario compare, NPV, IRR) + function-calling registry with JSON schemas
 - [x] **P4** Agent — LLM client (Claude + mock fallback), capability router, deterministic plan→retrieve→compute→compose pipeline, guardrails (citation enforcement, freshness, safe-comms), human-approval gate
-- [ ] **P5** Provenance, freshness, security, audit, token/latency
+- [x] **P5** Governance — RBAC + approved-only + PII redaction (`security/`), JSONL audit log + token/cost + per-stage latency (`observability/`), provenance reporting (`provenance/`)
 - [ ] **P6** Evaluation (numeric, retrieval, generation, safe-comms)
 - [ ] **P7** FastAPI + Streamlit
 - [ ] **P8** Docs (product discovery, model risk, architecture)
