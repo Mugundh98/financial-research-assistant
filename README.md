@@ -73,7 +73,7 @@ pytest -q                                           # tests + evals
 - [x] **P0** Scaffold, config, data contracts, README
 - [x] **P1** Real SEC ingestion — client + cache + normalization + filing-section extraction + `scripts.ingest` CLI
 - [x] **P2** Retrieval — chunking, LSA vector + BM25 keyword + hybrid (RRF), structured `FactStore` (duration-based fiscal-year derivation), networkx knowledge graph
-- [ ] **P3** Deterministic tools + structured outputs
+- [x] **P3** Deterministic tools — cited `ToolCall`s (growth, CAGR, margin, ratio, projection, scenario compare, NPV, IRR) + function-calling registry with JSON schemas
 - [ ] **P4** Agent orchestration + router + guardrails + human approval
 - [ ] **P5** Provenance, freshness, security, audit, token/latency
 - [ ] **P6** Evaluation (numeric, retrieval, generation, safe-comms)
