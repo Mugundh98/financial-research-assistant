@@ -65,8 +65,8 @@ Commands land as phases are implemented (see **Build status**):
 python -m scripts.ingest --tickers AAPL MSFT NVDA   # fetch + validate real SEC data
 python -m scripts.evaluate                          # evaluation scorecard (30 checks)
 pytest                                              # unit tests (28)
-python -m src.api.app                               # FastAPI service (P7)
-streamlit run dashboard/app.py                      # dashboard (P7)
+python -m src.api.app                               # FastAPI service (http://localhost:8000)
+streamlit run dashboard/app.py                      # dashboard (http://localhost:8501)
 ```
 
 ## Build status
@@ -78,7 +78,7 @@ streamlit run dashboard/app.py                      # dashboard (P7)
 - [x] **P4** Agent — LLM client (Claude + mock fallback), capability router, deterministic plan→retrieve→compute→compose pipeline, guardrails (citation enforcement, freshness, safe-comms), human-approval gate
 - [x] **P5** Governance — RBAC + approved-only + PII redaction (`security/`), JSONL audit log + token/cost + per-stage latency (`observability/`), provenance reporting (`provenance/`)
 - [x] **P6** Evaluation — `eval/` suites (numeric accuracy, retrieval hit@3/MRR, generation faithfulness, safe-comms) + `scripts.evaluate` scorecard (30/30) + `pytest` suite (28 tests)
-- [ ] **P7** FastAPI + Streamlit
+- [x] **P7** Deployment — FastAPI service (`src/api/app.py`: query/approve/provenance/costs/audit) + Streamlit dashboard (`dashboard/app.py`: cited findings, approval gate, provenance, reasoning trace)
 - [ ] **P8** Docs (product discovery, model risk, architecture)
 
 ## Notes on the data source
