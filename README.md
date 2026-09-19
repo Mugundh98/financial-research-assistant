@@ -79,7 +79,15 @@ streamlit run dashboard/app.py                      # dashboard (http://localhos
 - [x] **P5** Governance — RBAC + approved-only + PII redaction (`security/`), JSONL audit log + token/cost + per-stage latency (`observability/`), provenance reporting (`provenance/`)
 - [x] **P6** Evaluation — `eval/` suites (numeric accuracy, retrieval hit@3/MRR, generation faithfulness, safe-comms) + `scripts.evaluate` scorecard (30/30) + `pytest` suite (28 tests)
 - [x] **P7** Deployment — FastAPI service (`src/api/app.py`: query/approve/provenance/costs/audit) + Streamlit dashboard (`dashboard/app.py`: cited findings, approval gate, provenance, reasoning trace)
-- [ ] **P8** Docs (product discovery, model risk, architecture)
+- [x] **P8** Docs — [product discovery](docs/product_discovery.md), [model risk & governance](docs/model_risk.md), [architecture](docs/architecture.md)
+
+**All 8 phases complete — all 23 rubric capabilities implemented and evaluated.**
+
+## Documentation
+
+- [**Product discovery**](docs/product_discovery.md) — personas, jobs-to-be-done, use cases, success metrics, scope.
+- [**Model risk & governance**](docs/model_risk.md) — SR 11-7-style risk tiering, failure modes & mitigations, evaluation, oversight.
+- [**Architecture**](docs/architecture.md) — system diagram, query lifecycle, module map, design decisions, latency/cost trade-offs.
 
 ## Notes on the data source
 
