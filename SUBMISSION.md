@@ -26,9 +26,11 @@ streamlit run dashboard/app.py                      # dashboard (http://localhos
 python -m src.api.app                               # REST API   (http://localhost:8000)
 ```
 
-No API key is required: the LLM layer defaults to Anthropic **Claude** but falls
-back to a deterministic **mock** so the whole pipeline, demo, and evals run with
-zero secrets. Set `ANTHROPIC_API_KEY` in `.env` to enable Claude narration.
+No API key is required. The LLM layer is **multi-provider** — set `LLM_BACKEND` to
+`anthropic` (Claude), `gemini` (Google), or `mock`; each falls back to the
+deterministic **mock** if its key is absent, so the pipeline, demo, and evals run
+with zero secrets. Put `ANTHROPIC_API_KEY` or `GEMINI_API_KEY` in `.env` to enable
+real narration.
 
 ## Design in one paragraph
 

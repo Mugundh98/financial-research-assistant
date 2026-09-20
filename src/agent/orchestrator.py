@@ -120,30 +120,35 @@ class Agent:
         Numeric/advice questions are never answered from model memory."""
         covered = ", ".join(c.ticker for c in self.corpus.companies if c.ticker)
         can_fallback = (
-            self.llm.backend == "anthropic"
+            self.llm.is_real
             and not plan.is_advice
             and plan.intent not in self._NUMERIC_INTENTS
         )
         if can_fallback:
-            model, _ = select_model(plan, self.cfg)
-            res = self.llm.generate(prompts.FALLBACK_SYSTEM_PROMPT,
-                                    prompts.build_fallback_prompt(query), model=model)
-            answer, _ = redact((res.text or "").strip() or "I don't have enough information to answer that.")
-            result = AnalysisResult(
-                query_id=qid, query=query, answer=answer, findings=[], calculations=[],
-                confidence=0.2, requires_human_approval=True,
-                approval=ApprovalDecision(status=ApprovalStatus.PENDING,
-                                          reason="Unverified general-knowledge answer; human review required."),
-                disclaimers=[guardrails.RESEARCH_DISCLAIMER, guardrails.UNVERIFIED_DISCLAIMER],
-                caveats=["Answer is from the model's general knowledge, not SEC filings, and is unverified."],
-                model_used=model, usage=res.usage,
-                reasoning_trace=trace + ["llm-fallback: general knowledge (unverified)"],
-            )
-            self.cost.record(result.usage)
-            result.latency_ms = sw.total()
-            self.audit.log("llm_fallback", query_id=qid, user_id=access.user_id,
-                           role=access.role.value, intent=plan.intent)
-            return result
+            model = self.llm.model_for_tier(select_model(plan, self.cfg))
+            try:
+                res = self.llm.generate(prompts.FALLBACK_SYSTEM_PROMPT,
+                                        prompts.build_fallback_prompt(query), model=model)
+            except Exception as e:  # noqa: BLE001 - provider error -> fall through to refusal
+                self.audit.log("llm_error", query_id=qid, backend=self.llm.backend, error=str(e))
+                res = None
+            if res is not None:
+                answer, _ = redact((res.text or "").strip() or "I don't have enough information to answer that.")
+                result = AnalysisResult(
+                    query_id=qid, query=query, answer=answer, findings=[], calculations=[],
+                    confidence=0.2, requires_human_approval=True,
+                    approval=ApprovalDecision(status=ApprovalStatus.PENDING,
+                                              reason="Unverified general-knowledge answer; human review required."),
+                    disclaimers=[guardrails.RESEARCH_DISCLAIMER, guardrails.UNVERIFIED_DISCLAIMER],
+                    caveats=["Answer is from the model's general knowledge, not SEC filings, and is unverified."],
+                    model_used=model, usage=res.usage,
+                    reasoning_trace=trace + ["llm-fallback: general knowledge (unverified)"],
+                )
+                self.cost.record(result.usage)
+                result.latency_ms = sw.total()
+                self.audit.log("llm_fallback", query_id=qid, user_id=access.user_id,
+                               role=access.role.value, intent=plan.intent)
+                return result
 
         self.audit.log("refused_scope", query_id=qid, user_id=access.user_id, role=access.role.value)
         result = AnalysisResult(
@@ -320,8 +325,9 @@ class Agent:
             denied.latency_ms = sw.total()
             return denied
 
-        model, tier = select_model(plan, self.cfg)
-        trace.append(f"router: {model} ({tier})")
+        tier = select_model(plan, self.cfg)
+        model = self.llm.model_for_tier(tier)
+        trace.append(f"router: {tier} -> {model}")
 
         ev = self._gather(plan)
         trace.append(f"evidence: {len(ev.hits)} doc hits, "
@@ -345,19 +351,23 @@ class Agent:
             reasoning_trace=trace,
         )
 
-        # Optional LLM narration (Claude when available; mock -> keep template).
-        if self.llm.backend == "anthropic":
-            block = prompts.build_evidence_block(result.calculations, ev.hits)
-            res = self.llm.generate(
-                prompts.SYSTEM_PROMPT,
-                prompts.build_composition_prompt(query, block),
-                model=model,
-            )
-            if res.text.strip():
-                result.answer = res.text.strip()
-            result.usage = res.usage
-            trace.append(f"llm: {res.backend} ({res.usage.input_tokens}->{res.usage.output_tokens} tok, "
-                         f"${res.usage.cost_usd:.4f})")
+        # Optional LLM narration (any real backend writes prose; mock -> template).
+        if self.llm.is_real:
+            try:
+                block = prompts.build_evidence_block(result.calculations, ev.hits)
+                res = self.llm.generate(
+                    prompts.SYSTEM_PROMPT,
+                    prompts.build_composition_prompt(query, block),
+                    model=model,
+                )
+                if res.text.strip():
+                    result.answer = res.text.strip()
+                result.usage = res.usage
+                trace.append(f"llm: {res.backend} {res.model} "
+                             f"({res.usage.input_tokens}->{res.usage.output_tokens} tok, ${res.usage.cost_usd:.4f})")
+            except Exception as e:  # noqa: BLE001 - degrade to the deterministic template
+                self.audit.log("llm_error", query_id=qid, backend=self.llm.backend, error=str(e))
+                trace.append(f"llm error ({self.llm.backend}): {e}; used template")
         else:
             trace.append("llm: mock (templated answer)")
         sw.lap("compose")
@@ -378,7 +388,7 @@ class Agent:
         # Token economics.
         self.cost.record(result.usage)
 
-        result.model_used = model if self.llm.backend == "anthropic" else "mock"
+        result.model_used = model if self.llm.is_real else "mock"
         result.latency_ms = sw.total()
         trace.append(f"timing_ms: {sw.stages}")
         result.reasoning_trace = trace

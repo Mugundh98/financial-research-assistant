@@ -21,7 +21,7 @@ scenarios, and produces source-cited analysis for professional users. It is
 | Deterministic calculators (`tools/`) | Rule-based | All arithmetic (growth, CAGR, margin, NPV, IRR, scenarios) | **None** (pure Python) | Low |
 | Structured retrieval (`FactStore`) | Deterministic lookup | Exact reported figures from XBRL | None | Low |
 | Vector/BM25/hybrid retrieval | ML (LSA/BM25) | Rank filing passages | Low (returns real text) | Medium |
-| LLM narrator (Claude / mock) | Generative | Writes prose **only**, from supplied evidence | Contained (no numbers, guardrailed) | Medium |
+| LLM narrator (Claude / Gemini / mock) | Generative | Writes prose **only**, from supplied evidence | Contained (no numbers, guardrailed) | Medium |
 | On-demand ingestion (`resolver.py`) | Deterministic | Resolve unknown ticker/name -> fetch real SEC filings | None (real data + citations) | Medium |
 | LLM general-knowledge fallback | Generative | Answer *qualitative* questions when no SEC data exists | Present, but labeled + gated | Medium |
 | Guardrails (`guardrails.py`) | Rule-based | Drop uncited claims, freshness, safe-comms, approval | Reduces risk | Control |

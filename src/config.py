@@ -21,11 +21,14 @@ AUDIT_DIR = BASE_DIR / "audit_logs"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # ---- LLM ----
-    llm_backend: str = "anthropic"          # "anthropic" | "mock"
+    # ---- LLM (multi-provider) ----
+    llm_backend: str = "anthropic"          # "anthropic" | "gemini" | "mock"
     anthropic_api_key: str | None = None
     llm_model_strong: str = "claude-sonnet-5"
     llm_model_fast: str = "claude-haiku-4-5-20251001"
+    gemini_api_key: str | None = None
+    gemini_model_strong: str = "gemini-2.5-flash"
+    gemini_model_fast: str = "gemini-2.5-flash"
     llm_max_tokens: int = 1500
     llm_temperature: float = 0.0
 

@@ -7,9 +7,10 @@ scenarios, explains its assumptions, produces **source-cited** analysis, and
 suite for numeric accuracy, freshness, source provenance, and safe communication.
 
 > Built as an engineering assignment. Data source is **real** (SEC EDGAR, no API
-> key). The LLM layer defaults to **Anthropic Claude** but automatically falls
-> back to a deterministic **mock** model when no key is present, so the whole
-> pipeline and all evaluations run with zero secrets.
+> key). The LLM layer is **multi-provider** — set `LLM_BACKEND` to `anthropic`
+> (Claude), `gemini` (Google), or `mock`; each automatically falls back to the
+> deterministic **mock** when its key is absent, so the whole pipeline and all
+> evaluations run with zero secrets.
 
 > **Reviewers:** start with [SUBMISSION.md](SUBMISSION.md) (summary + rubric map)
 > and [docs/DEMO.md](docs/DEMO.md) (end-to-end walkthrough).
