@@ -85,16 +85,20 @@ store, and guardrails.
 ## Data
 
 Source: **SEC EDGAR** (no API key; official filings are the "approved records").
-Demo corpus: **AAPL, MSFT, NVDA** — 7,583 validated XBRL facts + 9 filing
-sections (Business / Risk Factors / MD&A). Every fetch is cached to `data/cache/`
-for reproducible, offline-after-first runs. Fiscal years are derived from the
-reporting-period end (periods classified by duration) to avoid SEC's
-comparative-year mislabeling.
+Preloaded corpus: **AAPL, MSFT, NVDA** — 7,583 validated XBRL facts + 9 filing
+sections (Business / Risk Factors / MD&A), bundled so the repo runs offline. **Any
+other US public company is fetched from SEC on demand** (by ticker or well-known
+name) and answered with citations. Every fetch is cached to `data/cache/`. Fiscal
+years are derived from the reporting-period end (periods classified by duration)
+to avoid SEC's comparative-year mislabeling. When no SEC data exists, qualitative
+questions get a **labeled, unverified** LLM answer (only with a real key); numeric
+or advice questions **refuse** rather than fabricate.
 
 ## Known limitations (by design / scope)
 
-- Prototype corpus is three companies, 10-K only; adding more is one command,
-  and out-of-scope companies are **refused, not guessed**.
+- Three companies are preloaded; any other US filer is **auto-fetched on demand**
+  (10-K only). Truly unavailable questions **refuse** (numeric/advice) or return a
+  **labeled, unverified** LLM answer (qualitative, with a key) — never a guessed figure.
 - Freshness is at annual-filing cadence (10-Q/news not ingested) — surfaced via
   the freshness signal rather than hidden.
 - Retrieval uses LSA + BM25 by default (neural embeddings are a one-function

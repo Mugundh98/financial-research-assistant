@@ -100,6 +100,13 @@ SEC requires a descriptive contact in the request `User-Agent`. Set `SEC_USER_AG
 in `.env`. Responses are cached under `data/cache/` (git-ignored), so the first run
 needs network access and subsequent runs are reproducible/offline.
 
+**Coverage.** Preloaded: AAPL, MSFT, NVDA (bundled corpus, runs offline). Any other
+US public company is **fetched from SEC on demand** when you name its ticker (or a
+well-known name) — added to the corpus at query time and answered with citations.
+When no SEC data exists: qualitative questions get a **labeled, unverified**
+general-knowledge answer *only* if `ANTHROPIC_API_KEY` is set; numeric/advice
+questions always **refuse** rather than fabricate a figure.
+
 ## Disclaimer
 
 This is a research-assistant prototype. It surfaces sourced data and calculations

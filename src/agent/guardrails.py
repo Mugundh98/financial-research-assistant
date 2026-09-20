@@ -21,6 +21,10 @@ from .planning import Plan
 
 RESEARCH_DISCLAIMER = "This is research assistance, not personalized investment advice."
 NO_RECS_DISCLAIMER = "The assistant does not make buy/sell/hold recommendations."
+UNVERIFIED_DISCLAIMER = (
+    "Unverified: generated from the model's general knowledge, NOT from SEC filings "
+    "- do not treat as a sourced figure."
+)
 
 
 def _dedupe_citations(citations: list[Citation]) -> list[Citation]:

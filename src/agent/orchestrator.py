@@ -24,6 +24,7 @@ from ..contracts.models import (
     Role,
     ToolCall,
 )
+from ..ingestion import SECClient, TickerResolver, extract_candidate_tickers, fetch_company
 from ..ingestion.corpus import Corpus
 from ..observability import AuditLogger, CostMeter, Stopwatch
 from ..retrieval import DocumentRetriever, FactStore, chunk_corpus, hit_to_citation
@@ -59,6 +60,104 @@ class Agent:
         self.llm = llm or get_llm(self.cfg)
         self.audit = audit if audit is not None else AuditLogger()
         self.cost = cost_meter if cost_meter is not None else CostMeter()
+        self._client: Optional[SECClient] = None       # lazy (network) for on-demand ingest
+        self._resolver: Optional[TickerResolver] = None
+
+    # ---- on-demand SEC coverage ------------------------------------------ #
+    def _sec(self) -> SECClient:
+        if self._client is None:
+            self._client = SECClient()
+        return self._client
+
+    def _resolver_obj(self) -> TickerResolver:
+        if self._resolver is None:
+            self._resolver = TickerResolver(self._sec())
+        return self._resolver
+
+    def _has_unknown_candidate(self, query: str) -> bool:
+        """Offline check: does the query mention a ticker/alias not in the corpus?"""
+        known = {c.ticker.upper() for c in self.corpus.companies if c.ticker}
+        return bool(extract_candidate_tickers(query) - known)
+
+    def _rebuild_indexes(self) -> None:
+        self.factstore = FactStore(filter_approved(self.corpus.facts), self.corpus.companies)
+        self.retriever = DocumentRetriever().build(chunk_corpus(filter_approved(self.corpus.documents)))
+
+    def _try_dynamic_ingest(self, query: str, access: AccessContext, qid: str) -> list[str]:
+        """Resolve unknown tickers via SEC and ingest them live. Returns new tickers."""
+        try:
+            matches = self._resolver_obj().resolve(query)
+        except Exception as e:  # noqa: BLE001 - offline / network issue -> no ingest
+            self.audit.log("dynamic_resolve_failed", query_id=qid, error=str(e))
+            return []
+        existing = {c.cik for c in self.corpus.companies}
+        ingested: list[str] = []
+        for cik, ticker in matches[:3]:
+            if cik in existing:
+                continue
+            try:
+                company, facts, docs = fetch_company(self._sec(), cik)
+                self.corpus.companies.append(company)
+                self.corpus.facts.extend(facts)
+                self.corpus.documents.extend(docs)
+                existing.add(cik)
+                ingested.append(ticker)
+                self.audit.log("dynamic_ingest", query_id=qid, user_id=access.user_id,
+                               role=access.role.value, ticker=ticker, cik=cik,
+                               facts=len(facts), documents=len(docs))
+            except Exception as e:  # noqa: BLE001
+                self.audit.log("dynamic_ingest_failed", query_id=qid, ticker=ticker, error=str(e))
+        if ingested:
+            self._rebuild_indexes()
+        return ingested
+
+    _NUMERIC_INTENTS = {"metric", "growth", "margin", "compare", "scenario"}
+
+    def _fallback_or_refuse(self, plan: Plan, query: str, access: AccessContext,
+                            qid: str, sw: Stopwatch, trace: list[str]) -> AnalysisResult:
+        """No covered company/evidence: a labeled LLM general-knowledge answer for
+        qualitative questions (real backend only), otherwise a clean refusal.
+        Numeric/advice questions are never answered from model memory."""
+        covered = ", ".join(c.ticker for c in self.corpus.companies if c.ticker)
+        can_fallback = (
+            self.llm.backend == "anthropic"
+            and not plan.is_advice
+            and plan.intent not in self._NUMERIC_INTENTS
+        )
+        if can_fallback:
+            model, _ = select_model(plan, self.cfg)
+            res = self.llm.generate(prompts.FALLBACK_SYSTEM_PROMPT,
+                                    prompts.build_fallback_prompt(query), model=model)
+            answer, _ = redact((res.text or "").strip() or "I don't have enough information to answer that.")
+            result = AnalysisResult(
+                query_id=qid, query=query, answer=answer, findings=[], calculations=[],
+                confidence=0.2, requires_human_approval=True,
+                approval=ApprovalDecision(status=ApprovalStatus.PENDING,
+                                          reason="Unverified general-knowledge answer; human review required."),
+                disclaimers=[guardrails.RESEARCH_DISCLAIMER, guardrails.UNVERIFIED_DISCLAIMER],
+                caveats=["Answer is from the model's general knowledge, not SEC filings, and is unverified."],
+                model_used=model, usage=res.usage,
+                reasoning_trace=trace + ["llm-fallback: general knowledge (unverified)"],
+            )
+            self.cost.record(result.usage)
+            result.latency_ms = sw.total()
+            self.audit.log("llm_fallback", query_id=qid, user_id=access.user_id,
+                           role=access.role.value, intent=plan.intent)
+            return result
+
+        self.audit.log("refused_scope", query_id=qid, user_id=access.user_id, role=access.role.value)
+        result = AnalysisResult(
+            query_id=qid, query=query, refused=True,
+            refusal_reason="No approved SEC data covers this question.",
+            answer=(f"I can only answer from approved SEC data and couldn't find any for this. "
+                    f"Try a ticker symbol (e.g. AMZN) so I can fetch its filings, "
+                    f"or set ANTHROPIC_API_KEY for labeled general-knowledge answers. "
+                    f"Preloaded: {covered}."),
+            disclaimers=[guardrails.RESEARCH_DISCLAIMER],
+            reasoning_trace=trace + ["scope: refused (no data)"],
+        )
+        result.latency_ms = sw.total()
+        return result
 
     # ---- pipeline stages -------------------------------------------------- #
     def _gather(self, plan: Plan) -> Evidence:
@@ -194,19 +293,17 @@ class Agent:
         trace.append(f"plan: {plan}")
         sw.lap("plan")
 
-        # Scope guard: only answer about covered companies (never fabricate others).
+        # On-demand coverage: fetch any unknown-but-real SEC company, then re-plan.
+        if self._has_unknown_candidate(query):
+            added = self._try_dynamic_ingest(query, access, qid)
+            if added:
+                plan = plan_query(query, self.corpus.companies)
+                trace.append(f"dynamic ingest: {added}")
+            sw.lap("dynamic_ingest")
+
+        # Scope guard: no covered company -> labeled LLM fallback or refuse.
         if not plan.tickers:
-            covered = ", ".join(c.ticker for c in self.corpus.companies if c.ticker)
-            self.audit.log("refused_scope", query_id=qid, user_id=access.user_id, role=access.role.value)
-            scoped = AnalysisResult(
-                query_id=qid, query=query, refused=True,
-                refusal_reason="No covered company was identified in the question.",
-                answer=f"I can only answer about covered companies ({covered}); none was identified in your question.",
-                disclaimers=[guardrails.RESEARCH_DISCLAIMER],
-                reasoning_trace=trace + ["scope: no covered company"],
-            )
-            scoped.latency_ms = sw.total()
-            return scoped
+            return self._fallback_or_refuse(plan, query, access, qid, sw, trace)
 
         # Access control: refuse capabilities the caller's role lacks.
         cap = required_capability(plan.intent)

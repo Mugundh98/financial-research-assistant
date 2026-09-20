@@ -60,6 +60,24 @@ def build_evidence_block(tool_calls: list[ToolCall], hits: list[RetrievalHit]) -
     return "\n".join(lines) if lines else "(no evidence found)"
 
 
+FALLBACK_SYSTEM_PROMPT = """You are a financial-research assistant answering a GENERAL question for which no approved SEC filing data is available.
+
+Rules:
+- Answer only in general, educational terms.
+- Do NOT state specific financial figures, prices, valuations, or estimates for any company.
+- Do NOT give investment advice or buy/sell/hold recommendations.
+- If the question needs company-specific financial data you do not have, say so plainly.
+Keep it brief and clearly hedged."""
+
+
+def build_fallback_prompt(query: str) -> str:
+    return (
+        f"Question: {query}\n\n"
+        "Answer in general terms only — no specific company figures, no advice. "
+        "If it requires data you don't have, say so."
+    )
+
+
 def build_composition_prompt(query: str, evidence_block: str) -> str:
     return (
         f"Question:\n{query}\n\n"

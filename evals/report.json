@@ -193,12 +193,12 @@
           "detail": ""
         },
         {
-          "name": "out-of-scope company refused (Tesla)",
+          "name": "unknown company + numeric -> refused (no fabrication)",
           "passed": true,
           "detail": ""
         },
         {
-          "name": "irrelevant question refused",
+          "name": "unknown company + growth -> refused",
           "passed": true,
           "detail": ""
         }

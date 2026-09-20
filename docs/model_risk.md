@@ -22,6 +22,8 @@ scenarios, and produces source-cited analysis for professional users. It is
 | Structured retrieval (`FactStore`) | Deterministic lookup | Exact reported figures from XBRL | None | Low |
 | Vector/BM25/hybrid retrieval | ML (LSA/BM25) | Rank filing passages | Low (returns real text) | Medium |
 | LLM narrator (Claude / mock) | Generative | Writes prose **only**, from supplied evidence | Contained (no numbers, guardrailed) | Medium |
+| On-demand ingestion (`resolver.py`) | Deterministic | Resolve unknown ticker/name -> fetch real SEC filings | None (real data + citations) | Medium |
+| LLM general-knowledge fallback | Generative | Answer *qualitative* questions when no SEC data exists | Present, but labeled + gated | Medium |
 | Guardrails (`guardrails.py`) | Rule-based | Drop uncited claims, freshness, safe-comms, approval | Reduces risk | Control |
 
 **Key design control:** the generative model never computes or sources numbers —
@@ -59,7 +61,8 @@ highest-severity failure mode (fabricated financials) by construction.
 | Unsupported claim | Guardrail drops any finding without a citation |
 | Stale data presented as current | Freshness computed + `is_stale` surfaced; caveat added |
 | Advice / recommendation leakage | Advice detected → no-rec disclaimer + human-approval gate |
-| Out-of-scope / irrelevant question | Scope guard refuses (no covered company) |
+| Out-of-scope / irrelevant question | Scope guard refuses; unknown-but-real companies are fetched from SEC instead of guessed |
+| Unverified LLM answer mistaken for sourced fact | Fallback is labeled "unverified, not from filings", carries no citations, confidence 0.2, needs human approval; **never used for numeric or advice questions** |
 | Prompt injection via filing text | Retrieved text is data, not instructions; LLM output is prose-only and re-verified by guardrails; numbers unaffected |
 | PII exposure | Regex redaction of emails/SSNs/cards/phones on output |
 | Unauthorized action | Role-based access; approvals are admin-only |

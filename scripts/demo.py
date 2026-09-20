@@ -96,11 +96,19 @@ def main() -> None:
     print(f"Q ({analyst.role.value}): {q}")
     show(agent.answer(q, access=analyst))
 
-    rule("6. OUT OF SCOPE  (no covered company -> refuse, don't fabricate)")
-    q = "What are Tesla's main risks?"
+    rule("6. DYNAMIC COVERAGE  (auto-fetch a company NOT preloaded, live from SEC)")
+    q = "How fast is Amazon's revenue growing?"
+    print(f"Q ({analyst.role.value}): {q}")
+    print(f"  corpus before: {[c.ticker for c in agent.corpus.companies]}")
+    r = agent.answer(q, access=analyst)
+    show(r)
+    print(f"  corpus after:  {[c.ticker for c in agent.corpus.companies]}  (AMZN fetched live + cited)")
+
+    rule("7. GENUINELY UNAVAILABLE  (unknown company + numeric -> refuse, no fabrication)")
+    q = "What is the revenue of Zzxqqmax Holdings?"
     print(f"Q ({analyst.role.value}): {q}")
     r = agent.answer(q, access=analyst)
-    print(f"  refused={r.refused} :: {clean(r.answer)}")
+    print(f"  refused={r.refused} :: {clean(r.answer)[:120]}")
 
     rule("SESSION TELEMETRY")
     print(f"  token/cost: {agent.cost.summary()}")

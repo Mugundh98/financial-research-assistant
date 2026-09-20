@@ -58,6 +58,24 @@ class Corpus(BaseModel):
         return [f for f in self.facts if f.cik == cik10]
 
 
+def fetch_company(
+    client: SECClient,
+    cik: str,
+    concepts: Optional[list[str]] = None,
+    sections: Optional[list[str]] = None,
+    form: str = "10-K",
+) -> tuple[Company, list[FinancialFact], list[Document]]:
+    """Fetch + normalize one company by CIK (used for on-demand ingestion)."""
+    sub = client.submissions(cik)
+    company = company_from_submissions(sub)
+    facts = facts_from_company_facts(
+        cik, client.company_facts(cik),
+        concepts=concepts if concepts is not None else CORE_CONCEPTS,
+    )
+    docs = documents_for_company(client, cik, company.name, form=form, sections=sections)
+    return company, facts, docs
+
+
 def build_corpus(
     tickers: Iterable[str],
     client: Optional[SECClient] = None,
