@@ -12,9 +12,6 @@ suite for numeric accuracy, freshness, source provenance, and safe communication
 > deterministic **mock** when its key is absent, so the whole pipeline and all
 > evaluations run with zero secrets.
 
-> **Reviewers:** start with [SUBMISSION.md](SUBMISSION.md) (summary + rubric map)
-> and [docs/DEMO.md](docs/DEMO.md) (end-to-end walkthrough).
-
 ## Rubric coverage
 
 | # | Capability | Where it lives | Depth |
