@@ -13,9 +13,11 @@ env/
 
 # Cached SEC data (re-fetched on first run) and generated artifacts
 data/cache/
+data/app.db
 audit_logs/
 *.log
 *.sqlite
+*.db
 
 # OS / editor
 .DS_Store

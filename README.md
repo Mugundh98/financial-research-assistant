@@ -68,9 +68,10 @@ Commands land as phases are implemented (see **Build status**):
 ```bash
 python -m scripts.ingest --tickers AAPL MSFT NVDA   # fetch + validate real SEC data
 python -m scripts.evaluate                          # evaluation scorecard (30 checks)
-pytest                                              # unit tests (28)
+pytest                                              # unit tests
 python -m src.api.app                               # FastAPI service (http://localhost:8000)
-streamlit run dashboard/app.py                      # dashboard (http://localhost:8501)
+streamlit run dashboard/app.py                      # dashboard (sign-in gated; http://localhost:8501)
+python -m scripts.user_history --users              # inspect the per-user database
 ```
 
 ## Build status
@@ -86,6 +87,21 @@ streamlit run dashboard/app.py                      # dashboard (http://localhos
 - [x] **P8** Docs — [product discovery](docs/product_discovery.md), [model risk & governance](docs/model_risk.md), [architecture](docs/architecture.md)
 
 **All 8 phases complete — all 23 rubric capabilities implemented and evaluated.**
+
+## Per-user storage & login
+
+The Streamlit dashboard is **sign-in gated** (demo email login) and persists each
+user's activity to a local **SQLite** database (`data/app.db`, stdlib `sqlite3`)
+via [src/storage/db.py](src/storage/db.py):
+
+- `users` — who signed in
+- `query_history` — every query (text, tickers, intent, confidence, model, cost, timestamp)
+- `user_tickers` — per-user tally of every ticker looked at (count, last seen, company)
+
+Review it in the dashboard's **"My activity"** panel or from the CLI:
+`python -m scripts.user_history --email you@firm.com`. (Real Google OAuth can be
+swapped in behind the same sign-in seam; the demo login keeps it runnable with no
+external setup.)
 
 ## Documentation
 

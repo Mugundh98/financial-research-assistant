@@ -42,6 +42,14 @@ mode (fabricated financials) is removed by construction; every claim that lacks 
 citation is dropped, freshness is surfaced, advice is refused, and low-confidence
 or forward-looking answers are routed to a human-approval gate.
 
+## Persistence & login (extra)
+
+The dashboard is **sign-in gated** (demo email login) and persists each user's
+activity to a local **SQLite** database ([src/storage/db.py](src/storage/db.py)):
+`users`, `query_history`, and a per-user `user_tickers` tally. Reviewable in the
+dashboard's "My activity" panel or via `python -m scripts.user_history`. (Real
+Google OAuth swaps in behind the same seam.)
+
 ## Rubric coverage (23/23)
 
 | Capability | Where |

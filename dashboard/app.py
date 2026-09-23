@@ -5,6 +5,9 @@ guardrails produce: the sourced answer, cited findings, deterministic
 calculations, assumptions, freshness/confidence, the human-approval gate, a
 provenance table, and the reasoning trace (explainability).
 
+Sign-in (demo email login) gates the app so each user's queries and tickers are
+persisted to a local SQLite profile that can be reviewed later.
+
 Run: streamlit run dashboard/app.py
 """
 from __future__ import annotations
@@ -16,11 +19,12 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.agent import Agent  # noqa: E402
+from src.agent import Agent, plan_query  # noqa: E402
 from src.agent.prompts import _fmt_value  # noqa: E402
 from src.contracts.models import AccessContext, ApprovalStatus, Role  # noqa: E402
 from src.ingestion.corpus import Corpus  # noqa: E402
 from src.provenance import build_provenance  # noqa: E402
+from src.storage import AppDB  # noqa: E402
 
 st.set_page_config(page_title="Financial Research Assistant", page_icon="📊", layout="wide")
 
@@ -38,6 +42,11 @@ def get_agent() -> Agent:
     return Agent(Corpus.load())
 
 
+@st.cache_resource
+def get_db() -> AppDB:
+    return AppDB()
+
+
 def fmt_output(value, unit) -> str:
     if isinstance(value, dict):
         if "scenarios" in value:
@@ -46,12 +55,41 @@ def fmt_output(value, unit) -> str:
     return _fmt_value(value, unit)
 
 
+db = get_db()
+
+# ---- login gate (demo email sign-in) ------------------------------------- #
+if "user_email" not in st.session_state:
+    st.title("📊 Financial-Research Assistant")
+    st.caption("Sign in to continue — your queries and tickers are saved to your profile.")
+    with st.form("login"):
+        email = st.text_input("Email", placeholder="you@firm.com")
+        name = st.text_input("Name (optional)")
+        submitted = st.form_submit_button("Sign in")
+    if submitted:
+        if email.strip():
+            em = email.strip().lower()
+            db.upsert_user(em, name.strip() or None)
+            st.session_state["user_email"] = em
+            st.session_state["user_name"] = name.strip() or em
+            st.rerun()
+        else:
+            st.error("Please enter an email to sign in.")
+    st.stop()
+
+user_email = st.session_state["user_email"]
+user_name = st.session_state.get("user_name", user_email)
+
 agent = get_agent()
 
 # ---- sidebar ------------------------------------------------------------- #
 with st.sidebar:
     st.header("📊 Research Assistant")
-    st.caption("Approved SEC-sourced financial analysis")
+    st.caption(f"Signed in as **{user_name}**")
+    if st.button("Log out", use_container_width=True):
+        for k in ("user_email", "user_name", "result", "access_role", "query"):
+            st.session_state.pop(k, None)
+        st.rerun()
+    st.divider()
     role = st.selectbox("Role", ["analyst", "viewer", "admin"], help="Access level for this request")
     st.divider()
     st.subheader("Try an example")
@@ -68,17 +106,23 @@ with st.sidebar:
 st.title("Financial-Research & Decision-Intelligence")
 
 query = st.text_input(
-    "Ask about AAPL, MSFT, or NVDA",
+    "Ask about a US public company (by ticker or name)",
     value=st.session_state.get("query", ""),
     placeholder="e.g. How fast is NVIDIA's revenue growing vs Microsoft?",
 )
 run = st.button("Run analysis", type="primary")
 
 if run and query.strip():
-    access = AccessContext(user_id=f"dashboard-{role}", role=Role(role))
+    access = AccessContext(user_id=user_email, role=Role(role))
     with st.spinner("Analyzing…"):
-        st.session_state["result"] = agent.answer(query, access=access).model_copy(deep=True)
-        st.session_state["access_role"] = role
+        result = agent.answer(query, access=access).model_copy(deep=True)
+    st.session_state["result"] = result
+    st.session_state["access_role"] = role
+    # persist this query + the tickers it touched to the user's profile
+    plan = plan_query(query, agent.corpus.companies)
+    companies = {c.ticker: c.name for c in agent.corpus.companies if c.ticker}
+    db.record_query(user_email, query=query, tickers=plan.tickers,
+                    intent=plan.intent, result=result, companies=companies)
 
 result = st.session_state.get("result")
 if result:
@@ -103,14 +147,12 @@ if result:
             st.warning(f"⏳ **Human approval required** — {result.approval.reason}")
             a1, a2, _ = st.columns([1, 1, 3])
             if a1.button("✅ Approve", use_container_width=True):
-                acc = AccessContext(user_id=f"dashboard-{st.session_state['access_role']}",
-                                    role=Role(st.session_state["access_role"]))
-                agent.resolve_approval(result, "approve", approver=acc.user_id, access=acc)
+                acc = AccessContext(user_id=user_email, role=Role(st.session_state["access_role"]))
+                agent.resolve_approval(result, "approve", approver=user_email, access=acc)
                 st.rerun()
             if a2.button("❌ Reject", use_container_width=True):
-                acc = AccessContext(user_id=f"dashboard-{st.session_state['access_role']}",
-                                    role=Role(st.session_state["access_role"]))
-                agent.resolve_approval(result, "reject", approver=acc.user_id, access=acc)
+                acc = AccessContext(user_id=user_email, role=Role(st.session_state["access_role"]))
+                agent.resolve_approval(result, "reject", approver=user_email, access=acc)
                 st.rerun()
         elif result.approval.status != ApprovalStatus.NOT_REQUIRED:
             st.info(f"Approval: **{result.approval.status.value}**"
@@ -160,3 +202,17 @@ if result:
         st.caption(f"⚠️ {d}")
     for cav in result.caveats:
         st.caption(f"• {cav}")
+
+# ---- per-user activity (from the local database) ------------------------- #
+st.divider()
+with st.expander("👤 My activity (saved to your profile)"):
+    tickers = db.get_user_tickers(user_email)
+    history = db.get_history(user_email, limit=20)
+    if tickers:
+        st.caption("**Tickers you've looked at**")
+        st.dataframe(tickers, use_container_width=True, hide_index=True)
+    if history:
+        st.caption("**Recent queries**")
+        st.dataframe(history, use_container_width=True, hide_index=True)
+    if not tickers and not history:
+        st.caption("No activity yet — run a query above.")
