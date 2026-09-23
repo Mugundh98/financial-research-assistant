@@ -28,6 +28,11 @@ def test_record_and_tally(tmp_path):
     assert history[0]["query"] == "compare aapl msft"   # newest first
     assert db.stats()["users"] == 1
 
+    # per-user stats are isolated to that user
+    stats = db.user_stats("a@x.com")
+    assert stats["queries"] == 2 and stats["tickers"] == 2
+    assert db.user_stats("someone-else@x.com")["queries"] == 0
+
 
 def test_users_listing_and_isolation(tmp_path):
     db = AppDB(path=tmp_path / "t2.db")

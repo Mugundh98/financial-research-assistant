@@ -118,6 +118,18 @@ class AppDB:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def user_stats(self, email: str) -> dict:
+        """Per-user totals (queries, spend, distinct tickers) from the DB."""
+        with closing(self._connect()) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS queries, COALESCE(SUM(cost_usd), 0) AS cost_usd "
+                "FROM query_history WHERE email=?", (email,),
+            ).fetchone()
+            tickers = conn.execute(
+                "SELECT COUNT(*) FROM user_tickers WHERE email=?", (email,),
+            ).fetchone()[0]
+        return {"queries": row["queries"], "cost_usd": row["cost_usd"], "tickers": tickers}
+
     def all_users(self) -> list[dict]:
         with closing(self._connect()) as conn:
             rows = conn.execute(

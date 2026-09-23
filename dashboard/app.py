@@ -64,6 +64,8 @@ if "user_email" not in st.session_state:
     with st.form("login"):
         email = st.text_input("Email", placeholder="you@firm.com")
         name = st.text_input("Name (optional)")
+        login_role = st.selectbox("Role", ["analyst", "viewer", "admin"],
+                                  help="Chosen at login and fixed for the session — log out to change it.")
         submitted = st.form_submit_button("Sign in")
     if submitted:
         if email.strip():
@@ -71,6 +73,7 @@ if "user_email" not in st.session_state:
             db.upsert_user(em, name.strip() or None)
             st.session_state["user_email"] = em
             st.session_state["user_name"] = name.strip() or em
+            st.session_state["role"] = login_role
             st.rerun()
         else:
             st.error("Please enter an email to sign in.")
@@ -78,6 +81,7 @@ if "user_email" not in st.session_state:
 
 user_email = st.session_state["user_email"]
 user_name = st.session_state.get("user_name", user_email)
+role = st.session_state.get("role", "analyst")
 
 agent = get_agent()
 
@@ -85,21 +89,21 @@ agent = get_agent()
 with st.sidebar:
     st.header("📊 Research Assistant")
     st.caption(f"Signed in as **{user_name}**")
+    st.caption(f"Role: **{role}** · fixed for this session")
     if st.button("Log out", use_container_width=True):
-        for k in ("user_email", "user_name", "result", "access_role", "query"):
+        for k in ("user_email", "user_name", "role", "result", "query"):
             st.session_state.pop(k, None)
         st.rerun()
-    st.divider()
-    role = st.selectbox("Role", ["analyst", "viewer", "admin"], help="Access level for this request")
     st.divider()
     st.subheader("Try an example")
     for ex in EXAMPLES:
         if st.button(ex, use_container_width=True):
             st.session_state["query"] = ex
     st.divider()
-    cost = agent.cost.summary()
-    st.metric("Session queries", cost["queries"])
-    st.metric("Session cost (USD)", f"${cost['cost_usd']:.4f}")
+    us = db.user_stats(user_email)
+    st.metric("Your queries", us["queries"])
+    st.metric("Your spend (USD)", f"${us['cost_usd']:.4f}")
+    st.metric("Tickers researched", us["tickers"])
     st.caption(f"LLM backend: `{agent.llm.backend}`")
 
 # ---- main ---------------------------------------------------------------- #
@@ -117,7 +121,6 @@ if run and query.strip():
     with st.spinner("Analyzing…"):
         result = agent.answer(query, access=access).model_copy(deep=True)
     st.session_state["result"] = result
-    st.session_state["access_role"] = role
     # persist this query + the tickers it touched to the user's profile
     plan = plan_query(query, agent.corpus.companies)
     companies = {c.ticker: c.name for c in agent.corpus.companies if c.ticker}
@@ -147,11 +150,11 @@ if result:
             st.warning(f"⏳ **Human approval required** — {result.approval.reason}")
             a1, a2, _ = st.columns([1, 1, 3])
             if a1.button("✅ Approve", use_container_width=True):
-                acc = AccessContext(user_id=user_email, role=Role(st.session_state["access_role"]))
+                acc = AccessContext(user_id=user_email, role=Role(role))
                 agent.resolve_approval(result, "approve", approver=user_email, access=acc)
                 st.rerun()
             if a2.button("❌ Reject", use_container_width=True):
-                acc = AccessContext(user_id=user_email, role=Role(st.session_state["access_role"]))
+                acc = AccessContext(user_id=user_email, role=Role(role))
                 agent.resolve_approval(result, "reject", approver=user_email, access=acc)
                 st.rerun()
         elif result.approval.status != ApprovalStatus.NOT_REQUIRED:
