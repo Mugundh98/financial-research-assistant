@@ -60,7 +60,7 @@ pip install -r requirements.txt
 cp .env.example .env        # optional; set ANTHROPIC_API_KEY + SEC_USER_AGENT contact
 ```
 
-Commands land as phases are implemented (see **Build status**):
+Commands land as phases are implemented:
 
 ```bash
 python -m scripts.ingest --tickers AAPL MSFT NVDA   # fetch + validate real SEC data
